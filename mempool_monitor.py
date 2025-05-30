@@ -4,6 +4,11 @@ from email.mime.text import MIMEText
 from email.header import Header
 import time
 import logging
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 配置日志
 logging.basicConfig(
@@ -16,11 +21,13 @@ TARGET_BLOCK_HEIGHT = 899130
 
 # 邮件配置
 SMTP_SERVER = "smtp.qq.com"
-SMTP_PORT = 465  # 修改为465端口
-SENDER_EMAIL = "hezhaoqian1@foxmail.com"
-RECEIVER_EMAIL = "hezhaoqian1@foxmail.com"
-# 注意：这里需要填写您的QQ邮箱授权码，而不是QQ邮箱密码
-SMTP_PASSWORD = "wfwwxaycuzcldfhj"
+SMTP_PORT = 465
+SENDER_EMAIL = os.getenv('SENDER_EMAIL', 'hezhaoqian1@foxmail.com')
+RECEIVER_EMAIL = os.getenv('RECEIVER_EMAIL', 'hezhaoqian1@foxmail.com')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')  # 从环境变量获取密码
+
+if not SMTP_PASSWORD:
+    raise ValueError("请设置环境变量 SMTP_PASSWORD")
 
 def get_current_block_height():
     """获取当前区块高度"""
