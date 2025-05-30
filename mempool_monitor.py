@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 
 # 加载环境变量
-load_dotenv()
+load_dotenv('config.env')
 
 # 配置日志
 logging.basicConfig(
@@ -16,18 +16,13 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# 目标区块高度
-TARGET_BLOCK_HEIGHT = 899130
-
-# 邮件配置
-SMTP_SERVER = "smtp.qq.com"
-SMTP_PORT = 465
+# 从环境变量获取配置
+TARGET_BLOCK_HEIGHT = int(os.getenv('TARGET_BLOCK_HEIGHT', '899130'))
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.qq.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 SENDER_EMAIL = os.getenv('SENDER_EMAIL', 'hezhaoqian1@foxmail.com')
 RECEIVER_EMAIL = os.getenv('RECEIVER_EMAIL', 'hezhaoqian1@foxmail.com')
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')  # 从环境变量获取密码
-
-if not SMTP_PASSWORD:
-    raise ValueError("请设置环境变量 SMTP_PASSWORD")
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 
 def get_current_block_height():
     """获取当前区块高度"""
@@ -53,10 +48,10 @@ def send_email_notification():
     message['To'] = RECEIVER_EMAIL
 
     try:
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
             server.login(SENDER_EMAIL, SMTP_PASSWORD)
             server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], message.as_string())
-            # 检查邮件是否真的发送成功
             try:
                 server.quit()
             except:
