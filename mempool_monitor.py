@@ -109,19 +109,19 @@ def main():
 
     try:
         while running and not notification_sent:
-            current_height = get_current_block_height()
+        current_height = get_current_block_height()
+        
+        if current_height is not None:
+            logging.info(f"当前区块高度: {current_height}")
             
-            if current_height is not None:
-                logging.info(f"当前区块高度: {current_height}")
-                
-                if current_height >= TARGET_BLOCK_HEIGHT:
-                    logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}")
-                    send_email_notification()
+            if current_height >= TARGET_BLOCK_HEIGHT:
+                logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}")
+                send_email_notification()
                     play_alert_sound()
-                    notification_sent = True
-                else:
-                    logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
-            
+                notification_sent = True
+            else:
+                logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
+        
             # 使用5秒的检查间隔
             for _ in range(5):  # 将5秒分成5个1秒
                 if not running:
