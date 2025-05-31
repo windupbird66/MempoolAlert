@@ -30,9 +30,12 @@ def signal_handler(signum, frame):
     global running
     logging.info("\n正在停止程序...")
     running = False
-    # 立即停止音频播放
-    pygame.mixer.music.stop()
-    pygame.mixer.quit()
+    try:
+        # 立即停止音频播放
+        pygame.mixer.music.stop()
+        pygame.mixer.quit()
+    except:
+        pass  # 忽略清理时的错误
     sys.exit(0)  # 强制退出程序
 
 # 从环境变量获取配置
@@ -127,10 +130,15 @@ def main():
                 
     except KeyboardInterrupt:
         logging.info("\n程序被用户中断")
+    except SystemExit:
+        pass  # 忽略系统退出异常
     finally:
-        # 确保清理资源
-        pygame.mixer.music.stop()
-        pygame.mixer.quit()
+        try:
+            # 确保清理资源
+            pygame.mixer.music.stop()
+            pygame.mixer.quit()
+        except:
+            pass  # 忽略清理时的错误
         logging.info("程序已停止")
 
 if __name__ == "__main__":
