@@ -6,15 +6,34 @@ import time
 import logging
 import os
 from dotenv import load_dotenv
+import pygame
+import signal
+import sys
 
 # 加载环境变量
 load_dotenv('config.env')
+
+# 初始化pygame音频
+pygame.mixer.init()
+
+# 全局变量用于控制循环
+running = True
 
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+def signal_handler(signum, frame):
+    """处理 Ctrl+C 信号"""
+    global running
+    logging.info("\n正在停止程序...")
+    running = False
+    # 立即停止音频播放
+    pygame.mixer.music.stop()
+    pygame.mixer.quit()
+    sys.exit(0)  # 强制退出程序
 
 # 从环境变量获取配置
 TARGET_BLOCK_HEIGHT = int(os.getenv('TARGET_BLOCK_HEIGHT', '899130'))
@@ -66,25 +85,53 @@ def send_email_notification():
         logging.error(f"发送邮件失败: {str(e)}")
         raise
 
+def play_alert_sound():
+    """循环播放提示音"""
+    try:
+        # 使用自定义提示音
+        pygame.mixer.music.load('mempo.wav')
+        # 设置循环播放
+        pygame.mixer.music.play(-1)  # -1 表示无限循环
+        logging.info("开始循环播放提示音...")
+        logging.info("按 Ctrl+C 停止播放")
+    except Exception as e:
+        logging.error(f"播放提示音失败: {str(e)}")
+
 def main():
+    # 设置信号处理
+    signal.signal(signal.SIGINT, signal_handler)
+    
     logging.info("开始监控区块高度...")
     notification_sent = False
 
-    while not notification_sent:
-        current_height = get_current_block_height()
-        
-        if current_height is not None:
-            logging.info(f"当前区块高度: {current_height}")
+    try:
+        while running and not notification_sent:
+            current_height = get_current_block_height()
             
-            if current_height >= TARGET_BLOCK_HEIGHT:
-                logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}")
-                send_email_notification()
-                notification_sent = True
-            else:
-                logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
-        
-        # 每60秒检查一次
-        time.sleep(60)
+            if current_height is not None:
+                logging.info(f"当前区块高度: {current_height}")
+                
+                if current_height >= TARGET_BLOCK_HEIGHT:
+                    logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}")
+                    send_email_notification()
+                    play_alert_sound()
+                    notification_sent = True
+                else:
+                    logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
+            
+            # 使用5秒的检查间隔
+            for _ in range(5):  # 将5秒分成5个1秒
+                if not running:
+                    break
+                time.sleep(1)
+                
+    except KeyboardInterrupt:
+        logging.info("\n程序被用户中断")
+    finally:
+        # 确保清理资源
+        pygame.mixer.music.stop()
+        pygame.mixer.quit()
+        logging.info("程序已停止")
 
 if __name__ == "__main__":
     main() 
