@@ -11,12 +11,35 @@ import signal
 import sys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import json
 
 # 加载 config.env 文件中的环境变量
 load_dotenv('config.env')
 
 # 全局变量用于控制程序运行和信号处理
 running = True
+
+# mint状态文件路径
+MINT_STATUS_FILE = 'mint_status.json'
+
+def load_mint_status():
+    """从文件加载mint状态"""
+    if os.path.exists(MINT_STATUS_FILE):
+        try:
+            with open(MINT_STATUS_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logging.error(f"加载mint状态文件失败: {e}")
+    return {}
+
+def save_mint_status(minted_blocks):
+    """保存mint状态到文件"""
+    try:
+        with open(MINT_STATUS_FILE, 'w') as f:
+            json.dump(minted_blocks, f)
+        logging.info(f"mint状态已保存到文件: {MINT_STATUS_FILE}")
+    except Exception as e:
+        logging.error(f"保存mint状态到文件失败: {e}")
 
 def signal_handler(signum, frame):
     """处理 Ctrl+C 信号"""
@@ -146,16 +169,44 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
             # 等待确认模态框出现并点击"确认"按钮
             try:
                 logging.info("等待确认模态框出现...")
-                # 使用显式等待等待模态框出现，或者等待确认按钮可点击
-                wait = WebDriverWait(driver, 10)
-                confirm_button = wait.until(EC.visibility_of_element_located((By.ID, "confirmMintButton")))
+                # 增加等待时间到 20 秒
+                wait = WebDriverWait(driver, 20)
+                
+                # 等待确认按钮出现并可点击
+                logging.info("等待确认按钮出现...")
+                confirm_button = wait.until(
+                    EC.element_to_be_clickable((By.ID, "confirmMintButton"))
+                )
+                
+                # 打印确认按钮的文本内容（用于调试）
+                logging.info(f"确认按钮文本: {confirm_button.text}")
+                
+                # 确保按钮在视图中
+                driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
+                time.sleep(1)  # 给页面一点时间滚动
                 
                 logging.info("找到确认按钮，正在点击...")
                 confirm_button.click()
                 logging.info("点击确认按钮成功")
                 
+                # 等待确认操作完成和等待模态框消失
+                logging.info("等待订单提交完成...")
+                try:
+                    # 等待最多60秒，直到等待模态框消失
+                    wait = WebDriverWait(driver, 60)  # 增加等待时间到60秒
+                    wait.until(EC.invisibility_of_element_located((By.ID, "waitingModal")))
+                    logging.info("订单提交完成，等待模态框已关闭")
+                except Exception as e:
+                    logging.warning(f"等待订单提交完成时超时: {e}")
+                
+                # 额外等待3秒确保所有操作都完成
+                time.sleep(3)
+                logging.info("所有操作完成")
+                
             except Exception as e:
                 logging.error(f"处理确认模态框失败: {e}")
+                # 尝试获取页面源码以帮助调试
+                logging.error(f"当前页面源码: {driver.page_source}")
 
         except Exception as e:
              logging.error(f"查找或点击 '开始铸造' 按钮失败 (ID='startMinting'): {e}")
@@ -190,24 +241,40 @@ def main():
         return # 不执行后续操作
     if not GAS_FEE_RATE:
         logging.warning("未在 config.env 中设置 GAS_FEE_RATE，将使用默认值 3。")
-        # 可以选择在这里设置默认值，或者在 os.getenv 中设置
-        # GAS_FEE_RATE = '3' 
+    
+    # 从文件加载mint状态
+    minted_blocks = load_mint_status()
+    logging.info(f"已加载mint状态: {minted_blocks}")
         
     try:
         while running:
             current_height = get_current_block_height()
             
             if current_height is not None:
-                logging.info(f"当前区块高度: {current_height}")
+                next_block = current_height + 1
+                distance = TARGET_BLOCK_HEIGHT - next_block  # 使用等待过块的区块来计算距离
+                logging.info(f"当前区块高度: {current_height} | 等待过块区块: {next_block} | 距离目标区块: {distance}")
                 
                 if current_height >= TARGET_BLOCK_HEIGHT:
-                    logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}，开始执行自动化铸造步骤...")
-                    # 确保将 Gas 费率转换为字符串传递给自动化函数
-                    automate_minting_steps(YOUR_PRIVATE_KEY, RECEIVE_ADDRESS, str(GAS_FEE_RATE))
-                    logging.info("自动化铸造步骤执行完毕。")
-                    break # 自动化完成后退出循环
+                    if str(TARGET_BLOCK_HEIGHT) not in minted_blocks:
+                        logging.warning(f"当前区块 {current_height} 已经达到或超过目标区块 {TARGET_BLOCK_HEIGHT}，无法提交交易，跳过mint操作")
+                    else:
+                        logging.info(f"已在目标区块 {TARGET_BLOCK_HEIGHT} 执行过mint操作")
+                    break
+                elif current_height == TARGET_BLOCK_HEIGHT - 1:
+                    # 当前区块是目标区块减1，说明下一个区块就是目标区块，现在应该执行mint
+                    if str(TARGET_BLOCK_HEIGHT) not in minted_blocks:
+                        logging.info(f"当前区块 {current_height}，下一个区块 {TARGET_BLOCK_HEIGHT} 将是目标区块，开始执行自动化铸造步骤...")
+                        automate_minting_steps(YOUR_PRIVATE_KEY, RECEIVE_ADDRESS, str(GAS_FEE_RATE))
+                        logging.info("自动化铸造步骤执行完毕。")
+                        minted_blocks[str(TARGET_BLOCK_HEIGHT)] = True
+                        save_mint_status(minted_blocks)
+                        break  # mint完成后退出
+                    else:
+                        logging.info(f"已在目标区块 {TARGET_BLOCK_HEIGHT} 执行过mint操作，跳过")
+                        break
                 else:
-                    logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
+                    logging.info(f"继续监控中...")
             
             # 每5秒检查一次区块高度，同时检查 running 标志
             for _ in range(5):

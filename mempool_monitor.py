@@ -109,24 +109,30 @@ def main():
 
     try:
         while running and not notification_sent:
-        current_height = get_current_block_height()
-        
-        if current_height is not None:
-            logging.info(f"当前区块高度: {current_height}")
+            current_height = get_current_block_height()
             
-            if current_height >= TARGET_BLOCK_HEIGHT:
-                logging.info(f"达到目标区块高度 {TARGET_BLOCK_HEIGHT}")
-                send_email_notification()
-                    play_alert_sound()
-                notification_sent = True
-            else:
-                logging.info(f"距离目标区块还有 {TARGET_BLOCK_HEIGHT - current_height} 个区块")
-        
-            # 使用5秒的检查间隔
-            for _ in range(5):  # 将5秒分成5个1秒
-                if not running:
+            if current_height is not None:
+                next_block = current_height + 1
+                distance = TARGET_BLOCK_HEIGHT - next_block  # 使用等待过块的区块来计算距离
+                logging.info(f"当前区块高度: {current_height} | 等待过块区块: {next_block} | 距离目标区块: {distance}")
+                
+                if current_height > TARGET_BLOCK_HEIGHT:
+                    logging.info(f"当前区块 {current_height} 已超过目标区块 {TARGET_BLOCK_HEIGHT}")
                     break
-                time.sleep(1)
+                elif current_height == TARGET_BLOCK_HEIGHT - 1:
+                    # 当前区块是目标区块减1，说明下一个区块就是目标区块，现在应该提醒
+                    logging.info(f"当前区块 {current_height}，下一个区块 {TARGET_BLOCK_HEIGHT} 将是目标区块，开始发送提醒...")
+                    send_email_notification()
+                    play_alert_sound()
+                    notification_sent = True
+                else:
+                    logging.info(f"继续监控中...")
+            
+                # 使用5秒的检查间隔
+                for _ in range(5):  # 将5秒分成5个1秒
+                    if not running:
+                        break
+                    time.sleep(1)
                 
     except KeyboardInterrupt:
         logging.info("\n程序被用户中断")
@@ -142,4 +148,4 @@ def main():
         logging.info("程序已停止")
 
 if __name__ == "__main__":
-    main() 
+    main()

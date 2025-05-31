@@ -40,9 +40,9 @@
 
 2.  **安装 Python 依赖:**
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 3.  **安装和配置 WebDriver:**
     -   下载对应您浏览器版本的 WebDriver（例如 ChromeDriver: [https://chromedriver.chromium.org/downloads](https://chromedriver.chromium.org/downloads)）。
@@ -84,9 +84,9 @@
 
 运行 `mempool_monitor.py` 来开始区块高度监控：
 
-```bash
-python mempool_monitor.py
-```
+   ```bash
+   python mempool_monitor.py
+   ```
 
 程序将开始监控区块高度，并在终端输出当前高度和距离目标的区块数。一旦达到或超过 `TARGET_BLOCK_HEIGHT`，程序将播放提示音并发送邮件通知（如果已配置）。
 
@@ -106,7 +106,7 @@ python mint_automation.py
 
 如果您只想测试网页自动化部分是否正常工作，可以使用 `test_mint_automation_steps.py` 脚本：
 
-```bash
+   ```bash
 python test_mint_automation_steps.py
 ```
 
