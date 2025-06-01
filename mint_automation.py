@@ -94,7 +94,7 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
         logging.info("网页加载中...")
         
         # 等待页面加载
-        time.sleep(5)
+        time.sleep(3)
         logging.info("网页加载完成，开始查找元素...")
         
         # 查找并填写私钥
