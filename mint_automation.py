@@ -83,10 +83,8 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
     driver = None
     try:
         # 初始化 WebDriver
-        # 如果使用了 Options 和 Service，请将它们作为参数传入
-        # driver = webdriver.Chrome(service=service, options=chrome_options)
         logging.info("正在初始化 WebDriver...")
-        driver = webdriver.Chrome() # 假设 ChromeDriver 在 PATH 中
+        driver = webdriver.Chrome()
         logging.info("WebDriver 初始化成功")
         
         # 导航到目标网页
@@ -95,11 +93,11 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
         driver.get(url)
         logging.info("网页加载中...")
         
-        # 等待页面加载 (可以根据实际情况调整等待时间或使用显式等待)
-        time.sleep(5) 
+        # 等待页面加载
+        time.sleep(5)
         logging.info("网页加载完成，开始查找元素...")
         
-        # 查找并填写私钥 (使用 ID 定位)
+        # 查找并填写私钥
         try:
             logging.info("正在查找私钥输入框...")
             private_key_input = driver.find_element(By.ID, "wif")
@@ -108,27 +106,25 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
             logging.info("私钥输入成功")
         except Exception as e:
             logging.error(f"查找或填写私钥失败 (ID='wif'): {e}")
-            # 如果找不到私钥输入框，程序会继续，但后续步骤会失败
             
-        # 查找并填写GAS费率 (使用 ID 定位)
+        # 查找并填写GAS费率
         try:
-            # 查找GAS费率输入框
             logging.info("正在查找GAS费率输入框...")
             gas_rate_input = driver.find_element(By.ID, "feeRate")
             logging.info(f"找到GAS费率输入框，正在清空并填写 {gas_fee_rate}...")
             gas_rate_input.clear()
-            gas_rate_input.send_keys(str(gas_fee_rate)) # 确保输入的是字符串
+            gas_rate_input.send_keys(str(gas_fee_rate))
             logging.info(f"GAS费率设置为 {gas_fee_rate}")
         except Exception as e:
             logging.error(f"查找或填写GAS费率失败 (ID='feeRate'): {e}")
 
-        # 查找并填写铸造收货地址 (使用 ID 定位)
+        # 查找并填写铸造收货地址
         if receive_address:
             try:
                 logging.info("正在查找铸造收货地址输入框...")
                 receive_address_input = driver.find_element(By.ID, "singleReceiveAddress")
                 logging.info("找到铸造收货地址输入框，正在填写...")
-                receive_address_input.clear() # 清空原有内容，如果需要
+                receive_address_input.clear()
                 receive_address_input.send_keys(receive_address)
                 logging.info("铸造收货地址填写成功")
             except Exception as e:
@@ -140,20 +136,24 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
         try:
             logging.info("正在查找 '查询矿工钱包可Mint数量' 按钮...")
             check_mintable_button = driver.find_element(By.ID, "checkMintable")
+            
+            # 滚动到按钮位置并等待
+            driver.execute_script("arguments[0].scrollIntoView(true);", check_mintable_button)
+            time.sleep(2)
+            
             logging.info("找到 '查询矿工钱包可Mint数量' 按钮，正在点击...")
-            check_mintable_button.click()
+            # 使用 JavaScript 点击按钮
+            driver.execute_script("arguments[0].click();", check_mintable_button)
             logging.info("点击 '查询矿工钱包可Mint数量' 按钮成功")
             
-            # 使用显式等待等待查询结果出现
+            # 等待查询结果出现
             try:
                 logging.info("等待查询结果出现...")
-                # 等待 id 为 'mintableResult' 的元素可见（可以根据实际情况调整等待时间）
-                wait = WebDriverWait(driver, 20) # 增加等待时间以防网络延迟
+                wait = WebDriverWait(driver, 20)
                 mintable_result_div = wait.until(EC.visibility_of_element_located((By.ID, "mintableResult")))
                 logging.info("查询结果出现，自动化继续。")
             except Exception as e:
                 logging.error(f"等待查询结果超时或出现错误: {e}")
-                # 如果等待超时，后续步骤可能会失败，这里可以选择是否中断
 
         except Exception as e:
             logging.error(f"查找或点击 '查询矿工钱包可Mint数量' 按钮失败 (ID='checkMintable'): {e}")
@@ -162,14 +162,19 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
         try:
             logging.info("正在查找 '开始铸造' 按钮...")
             start_minting_button = driver.find_element(By.ID, "startMinting")
+            
+            # 滚动到按钮位置并等待
+            driver.execute_script("arguments[0].scrollIntoView(true);", start_minting_button)
+            time.sleep(2)
+            
             logging.info("找到 '开始铸造' 按钮，正在点击...")
-            start_minting_button.click()
+            # 使用 JavaScript 点击按钮
+            driver.execute_script("arguments[0].click();", start_minting_button)
             logging.info("点击 '开始铸造' 按钮成功")
             
             # 等待确认模态框出现并点击"确认"按钮
             try:
                 logging.info("等待确认模态框出现...")
-                # 增加等待时间到 20 秒
                 wait = WebDriverWait(driver, 20)
                 
                 # 等待确认按钮出现并可点击
@@ -178,49 +183,44 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
                     EC.element_to_be_clickable((By.ID, "confirmMintButton"))
                 )
                 
-                # 打印确认按钮的文本内容（用于调试）
+                # 打印确认按钮的文本内容
                 logging.info(f"确认按钮文本: {confirm_button.text}")
                 
                 # 确保按钮在视图中
                 driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
-                time.sleep(1)  # 给页面一点时间滚动
+                time.sleep(1)
                 
                 logging.info("找到确认按钮，正在点击...")
-                confirm_button.click()
+                # 使用 JavaScript 点击按钮
+                driver.execute_script("arguments[0].click();", confirm_button)
                 logging.info("点击确认按钮成功")
                 
-                # 等待确认操作完成和等待模态框消失
+                # 等待确认操作完成
                 logging.info("等待订单提交完成...")
                 try:
-                    # 等待最多60秒，直到等待模态框消失
-                    wait = WebDriverWait(driver, 60)  # 增加等待时间到60秒
+                    wait = WebDriverWait(driver, 60)
                     wait.until(EC.invisibility_of_element_located((By.ID, "waitingModal")))
                     logging.info("订单提交完成，等待模态框已关闭")
                 except Exception as e:
                     logging.warning(f"等待订单提交完成时超时: {e}")
                 
-                # 额外等待3秒确保所有操作都完成
                 time.sleep(3)
                 logging.info("所有操作完成")
                 
             except Exception as e:
                 logging.error(f"处理确认模态框失败: {e}")
-                # 尝试获取页面源码以帮助调试
-                logging.error(f"当前页面源码: {driver.page_source}")
 
         except Exception as e:
-             logging.error(f"查找或点击 '开始铸造' 按钮失败 (ID='startMinting'): {e}")
+            logging.error(f"查找或点击 '开始铸造' 按钮失败 (ID='startMinting'): {e}")
         
-        # 在自动化完成后保持浏览器打开一段时间，方便检查 (可选)
         logging.info("自动化步骤完成。您可以检查浏览器状态。")
         if keep_browser_open:
-             logging.info("根据设置，浏览器将保持开启。请手动关闭。")
-             input("按 Enter 键关闭浏览器...") # 等待用户输入以保持浏览器开启
+            logging.info("根据设置，浏览器将保持开启。请手动关闭。")
+            input("按 Enter 键关闭浏览器...")
         
     except Exception as e:
         logging.error(f"自动化过程中发生错误: {e}")
     finally:
-        # 关闭浏览器，除非 keep_browser_open 为 True
         if driver and not keep_browser_open:
             logging.info("正在关闭浏览器...")
             driver.quit()
