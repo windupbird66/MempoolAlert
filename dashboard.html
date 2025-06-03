@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BirdDAO - 铸造仪表板</title>
+    <style>
+        :root {
+            --primary-color: #FFD700; /* Gold color for BirdDAO theme */
+            --primary-hover: #FFA500; /* Darker Gold */
+            --error-color: #f44336;
+            --success-color: #4CAF50;
+            --info-color: #2196F3;
+            --text-color: #333;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+        }
+
+         .button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(255, 215, 0, 0.2);
+        }
+
+        .button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .success {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        .error {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        .info {
+            background-color: rgba(33, 150, 243, 0.1);
+            color: var(--info-color);
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+
+         @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>铸造自动化仪表板</h1>
+
+        <div id="statusMessage" class="message info" style="display: none;"></div>
+
+        <div class="form-group">
+            <label for="privateKey">私钥:</label>
+            <input type="text" id="privateKey" placeholder="请输入您的私钥">
+        </div>
+
+        <div class="form-group">
+            <label for="receiveAddress">接收地址:</label>
+            <input type="text" id="receiveAddress" placeholder="请输入接收地址">
+        </div>
+
+        <div class="form-group">
+            <label for="gasFeeRate">Gas 费率 (sats/vB):</label>
+            <input type="number" id="gasFeeRate" value="3" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="targetBlockHeight">目标区块高度:</label>
+            <input type="number" id="targetBlockHeight" placeholder="请输入目标区块高度" min="0">
+        </div>
+
+        <button id="startMintButton" class="button">开始铸造和监控</button>
+    </div>
+
+    <script>
+        const privateKeyInput = document.getElementById('privateKey');
+        const receiveAddressInput = document.getElementById('receiveAddress');
+        const gasFeeRateInput = document.getElementById('gasFeeRate');
+        const targetBlockHeightInput = document.getElementById('targetBlockHeight');
+        const startMintButton = document.getElementById('startMintButton');
+        const statusMessageDiv = document.getElementById('statusMessage');
+
+        // 后端API地址
+        const BACKEND_URL = 'http://localhost:5000'; // Flask 后端默认端口
+
+        // 显示状态消息
+        function showStatusMessage(text, type) {
+            statusMessageDiv.textContent = text;
+            statusMessageDiv.className = 'message ' + type;
+            statusMessageDiv.style.display = 'block';
+        }
+
+        // 隐藏状态消息
+        function hideStatusMessage() {
+            statusMessageDiv.style.display = 'none';
+        }
+
+        // 从LocalStorage加载保存的配置
+        function loadConfig() {
+            const savedConfig = localStorage.getItem('mintConfig');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                privateKeyInput.value = config.private_key || '';
+                receiveAddressInput.value = config.receive_address || '';
+                gasFeeRateInput.value = config.gas_fee_rate || '3';
+                 // 目标区块高度通常是临时的，不自动加载
+                // targetBlockHeightInput.value = config.target_block_height || '';
+            }
+        }
+
+        // 将配置保存到LocalStorage
+        function saveConfig() {
+            const config = {
+                private_key: privateKeyInput.value,
+                receive_address: receiveAddressInput.value,
+                gas_fee_rate: gasFeeRateInput.value,
+                 // 目标区块高度不保存
+                // target_block_height: targetBlockHeightInput.value
+            };
+            localStorage.setItem('mintConfig', JSON.stringify(config));
+        }
+
+        // 启动铸造任务
+        async function startMintTask() {
+            const private_key = privateKeyInput.value.trim();
+            const receive_address = receiveAddressInput.value.trim();
+            const gas_fee_rate = gasFeeRateInput.value;
+            const target_block_height = targetBlockHeightInput.value;
+
+            if (!private_key || !receive_address || !gas_fee_rate || !target_block_height) {
+                showStatusMessage('请填写所有必填项！', 'error');
+                return;
+            }
+
+            // 保存配置 (不包括目标区块)
+            saveConfig();
+
+            startMintButton.disabled = true;
+            showStatusMessage('正在向后端发送任务请求...', 'info');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/start_mint`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        private_key: private_key,
+                        receive_address: receive_address,
+                        gas_fee_rate: gas_fee_rate,
+                        target_block_height: target_block_height
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatusMessage(`任务状态: ${result.message}`, result.status);
+                } else {
+                    showStatusMessage(`请求失败: ${result.message || response.statusText}`, 'error');
+                }
+
+            } catch (error) {
+                showStatusMessage(`发送请求失败: ${error.message}. 请确保后端服务正在运行。`, 'error');
+            } finally {
+                startMintButton.disabled = false;
+            }
+        }
+
+        // 页面加载时加载配置并绑定事件
+        window.addEventListener('load', () => {
+            loadConfig();
+            startMintButton.addEventListener('click', startMintTask);
+        });
+
+    </script>
+</body>
+</html> 

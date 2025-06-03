@@ -38,3 +38,6 @@ wheels/
 # 系统文件
 .DS_Store
 Thumbs.db 
+data/mempool.db
+data/tasks.db
+backend/data/mempool.db

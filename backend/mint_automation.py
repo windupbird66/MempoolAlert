@@ -12,15 +12,21 @@ import sys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import json
+import pygame
+from database import db
+from selenium.common.exceptions import TimeoutException
 
 # 加载 config.env 文件中的环境变量
-load_dotenv('config.env')
+# 假设 config.env 在项目根目录下的 config 文件夹中
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.env')
+load_dotenv(config_path)
 
 # 全局变量用于控制程序运行和信号处理
 running = True
 
 # mint状态文件路径
-MINT_STATUS_FILE = 'mint_status.json'
+# 假设 mint_status.json 在项目根目录下的 data 文件夹中
+MINT_STATUS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'mint_status.json')
 
 def load_mint_status():
     """从文件加载mint状态"""
@@ -32,22 +38,20 @@ def load_mint_status():
             logging.error(f"加载mint状态文件失败: {e}")
     return {}
 
-def save_mint_status(minted_blocks):
-    """保存mint状态到文件"""
-    try:
-        with open(MINT_STATUS_FILE, 'w') as f:
-            json.dump(minted_blocks, f)
-        logging.info(f"mint状态已保存到文件: {MINT_STATUS_FILE}")
-    except Exception as e:
-        logging.error(f"保存mint状态到文件失败: {e}")
+def save_mint_status(block_height, status):
+    """保存mint状态"""
+    db.save_mint_status(block_height, status)
 
 def signal_handler(signum, frame):
     """处理 Ctrl+C 信号"""
     global running
     logging.info("\n正在停止程序...")
     running = False
-    # 在接收到信号时尝试退出 Selenium WebDriver，如果已经初始化的话
-    # WebDriver cleanup is also handled in the main try...finally block
+    try:
+        pygame.mixer.music.stop()
+        pygame.mixer.quit()
+    except:
+        pass
     sys.exit(0)
 
 # 配置日志
@@ -76,6 +80,69 @@ def get_current_block_height():
     except Exception as e:
         logging.error(f"请求出错: {str(e)}")
         return None
+
+class MintAutomation:
+    def __init__(self, private_key, receive_address, gas_fee_rate):
+        self.private_key = private_key
+        self.receive_address = receive_address
+        self.gas_fee_rate = gas_fee_rate
+        
+        # 配置 Chrome Options
+        options = Options()
+        options.add_argument('--headless')  # 启用无头模式
+        options.add_argument('--no-sandbox') # 解决在某些 Linux 环境下的权限问题
+        options.add_argument('--disable-dev-shm-usage') # 解决 /dev/shm 空间不足的问题
+        
+        # 初始化 WebDriver，并传入 Options
+        logging.info("正在初始化 WebDriver (无头模式)...")
+        self.driver = webdriver.Chrome(options=options)
+        logging.info("WebDriver 初始化成功")
+
+    def __del__(self):
+        """确保在对象销毁时关闭 WebDriver"""
+        if self.driver:
+            logging.info("正在关闭 WebDriver...")
+            self.driver.quit()
+            logging.info("WebDriver 已关闭")
+
+    def wait_for_confirm_modal(self):
+        """等待确认模态框出现并点击"确认"按钮"""
+        try:
+            logging.info("等待确认模态框出现...")
+            wait = WebDriverWait(self.driver, 20)
+            
+            # 等待确认按钮出现并可点击
+            logging.info("等待确认按钮出现...")
+            confirm_button = wait.until(
+                EC.element_to_be_clickable((By.ID, "confirmMintButton"))
+            )
+            
+            # 打印确认按钮的文本内容
+            logging.info(f"确认按钮文本: {confirm_button.text}")
+            
+            # 确保按钮在视图中
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", confirm_button)
+            time.sleep(1)
+            
+            logging.info("找到确认按钮，正在点击...")
+            # 使用 JavaScript 点击按钮
+            self.driver.execute_script("arguments[0].click();", confirm_button)
+            logging.info("点击确认按钮成功")
+            
+            # 等待确认操作完成
+            logging.info("等待订单提交完成...")
+            try:
+                wait = WebDriverWait(self.driver, 60)
+                wait.until(EC.invisibility_of_element_located((By.ID, "waitingModal")))
+                logging.info("订单提交完成，等待模态框已关闭")
+            except Exception as e:
+                logging.warning(f"等待订单提交完成时超时: {e}")
+            
+            time.sleep(3)
+            logging.info("所有操作完成")
+            
+        except Exception as e:
+            logging.error(f"处理确认模态框失败: {e}")
 
 def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_browser_open=False):
     """使用Selenium执行铸造的自动化步骤"""
@@ -226,70 +293,109 @@ def automate_minting_steps(private_key, receive_address, gas_fee_rate, keep_brow
             driver.quit()
             logging.info("浏览器已关闭")
 
+def play_alert_sound():
+    """循环播放提示音"""
+    try:
+        # 使用自定义提示音
+        # 假设 mempo.wav 在项目根目录下的 assets 文件夹中
+        sound_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'mempo.wav')
+        pygame.mixer.music.load(sound_file_path)
+        # 设置循环播放
+        pygame.mixer.music.play(-1)  # -1 表示无限循环
+        logging.info("开始循环播放提示音...")
+        logging.info("按 Ctrl+C 停止播放")
+    except Exception as e:
+        logging.error(f"播放提示音失败: {str(e)}")
+
+def check_task_cancelled(target_block_height):
+    """检查任务是否被取消"""
+    try:
+        # 从数据库获取任务状态
+        task = db.get_task_by_block_height(target_block_height)
+        if task and task[1] == 'cancelling':
+            logging.info(f"任务 {target_block_height} 已被标记为取消")
+            return True
+        return False
+    except Exception as e:
+        logging.error(f"检查任务状态失败: {e}")
+        return False
+
 def main():
+    if len(sys.argv) != 5:
+        print("用法: python mint_automation.py <private_key> <receive_address> <gas_fee_rate> <target_block_height>")
+        sys.exit(1)
+
     # 设置信号处理
     signal.signal(signal.SIGINT, signal_handler)
-    
-    logging.info("开始监控区块高度，目标区块: {}".format(TARGET_BLOCK_HEIGHT))
-    
-    # 检查是否提供了私钥、接收地址和 Gas 费率
-    if YOUR_PRIVATE_KEY == 'YOUR_SECURELY_LOADED_PRIVATE_KEY_HERE':
-        logging.error("请在 config.env 中设置 MINTER_PRIVATE_KEY 或在代码中安全加载私钥！")
-        return # 不执行后续操作
-    if not RECEIVE_ADDRESS:
-        logging.error("请在 config.env 中设置 RECEIVE_ADDRESS！")
-        return # 不执行后续操作
-    if not GAS_FEE_RATE:
-        logging.warning("未在 config.env 中设置 GAS_FEE_RATE，将使用默认值 3。")
-    
-    # 从文件加载mint状态
-    minted_blocks = load_mint_status()
-    logging.info(f"已加载mint状态: {minted_blocks}")
-        
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # 初始化 pygame
+    pygame.mixer.init()
+
+    # 获取命令行参数
+    private_key = sys.argv[1]
+    receive_address = sys.argv[2]
+    gas_fee_rate = sys.argv[3]
+    target_block_height = int(sys.argv[4])
+
+    logging.info(f"目标区块高度: {target_block_height}")
+    logging.info(f"接收地址: {receive_address}")
+    logging.info(f"Gas 费率: {gas_fee_rate}")
+
     try:
         while running:
             current_height = get_current_block_height()
-            
             if current_height is not None:
-                next_block = current_height + 1
-                distance = TARGET_BLOCK_HEIGHT - next_block  # 使用等待过块的区块来计算距离
-                logging.info(f"当前区块高度: {current_height} | 等待过块区块: {next_block} | 距离目标区块: {distance}")
-                
-                if current_height >= TARGET_BLOCK_HEIGHT:
-                    if str(TARGET_BLOCK_HEIGHT) not in minted_blocks:
-                        logging.warning(f"当前区块 {current_height} 已经达到或超过目标区块 {TARGET_BLOCK_HEIGHT}，无法提交交易，跳过mint操作")
-                    else:
-                        logging.info(f"已在目标区块 {TARGET_BLOCK_HEIGHT} 执行过mint操作")
+                logging.info(f"当前区块高度: {current_height}，目标区块: {target_block_height}")
+
+                # 检查任务是否被取消
+                if check_task_cancelled(target_block_height):
+                    logging.info("任务已被取消，停止执行")
+                    db.update_task_status(target_block_height, 'cancelled')
                     break
-                elif current_height == TARGET_BLOCK_HEIGHT - 1:
-                    # 当前区块是目标区块减1，说明下一个区块就是目标区块，现在应该执行mint
-                    if str(TARGET_BLOCK_HEIGHT) not in minted_blocks:
-                        logging.info(f"当前区块 {current_height}，下一个区块 {TARGET_BLOCK_HEIGHT} 将是目标区块，开始执行自动化铸造步骤...")
-                        automate_minting_steps(YOUR_PRIVATE_KEY, RECEIVE_ADDRESS, str(GAS_FEE_RATE))
-                        logging.info("自动化铸造步骤执行完毕。")
-                        minted_blocks[str(TARGET_BLOCK_HEIGHT)] = True
-                        save_mint_status(minted_blocks)
-                        break  # mint完成后退出
-                    else:
-                        logging.info(f"已在目标区块 {TARGET_BLOCK_HEIGHT} 执行过mint操作，跳过")
+
+                if current_height >= target_block_height:
+                    logging.info(f"已达到目标区块高度 {target_block_height}")
+                    # 再次检查任务是否被取消
+                    if check_task_cancelled(target_block_height):
+                        logging.info("任务已被取消，停止执行")
+                        db.update_task_status(target_block_height, 'cancelled')
                         break
-                else:
-                    logging.info(f"继续监控中...")
-            
-            # 每5秒检查一次区块高度，同时检查 running 标志
+
+                    # 执行铸造步骤
+                    automate_minting_steps(private_key, receive_address, gas_fee_rate)
+                    # 播放提示音
+                    play_alert_sound()
+                    # 更新任务状态为已完成
+                    db.update_task_status(target_block_height, 'completed')
+                    break
+                elif current_height == target_block_height - 1:
+                    logging.info(f"当前区块 {current_height}，下一个区块 {target_block_height} 将是目标区块，开始执行自动化铸造步骤...")
+                    # 执行铸造步骤
+                    automate_minting_steps(private_key, receive_address, gas_fee_rate)
+                    # 播放提示音
+                    play_alert_sound()
+                    # 更新任务状态为已完成
+                    db.update_task_status(target_block_height, 'completed')
+                    break
+
+            # 每5秒检查一次
             for _ in range(5):
                 if not running:
                     break
                 time.sleep(1)
-        
-    except KeyboardInterrupt:
-        logging.info("\n程序被用户中断")
-    except SystemExit:
-        pass  # 忽略 SystemExit 异常，因为信号处理函数中已经处理
+
+    except Exception as e:
+        logging.error(f"程序执行出错: {e}")
+        # 更新任务状态为失败
+        db.update_task_status(target_block_height, 'failed')
     finally:
-        # 确保程序在退出时执行清理（如果需要）
-        # Selenium WebDriver cleanup is primarily in automate_minting_steps' finally block
-        logging.info("监控程序已停止。")
+        # 清理资源
+        try:
+            pygame.mixer.music.stop()
+            pygame.mixer.quit()
+        except:
+            pass
 
 if __name__ == "__main__":
     main() 

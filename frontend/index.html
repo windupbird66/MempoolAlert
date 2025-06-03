@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BirdDAO</title>
+    <style>
+        :root {
+            --primary-color: #FFD700; /* Gold color for BirdDAO theme */
+            --primary-hover: #FFA500; /* Darker Gold */
+            --error-color: #f44336;
+            --success-color: #4CAF50;
+            --info-color: #2196F3;
+            --text-color: #333;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --link-color: #1976D2; /* Material Blue for links */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            color: var(--text-color);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            padding: 40px;
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        .logo {
+            max-width: 150px;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 10px; /* Optional: if image has sharp corners */
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 20px 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+            text-decoration: none; /* For anchor tag styled as button */
+            display: inline-block; /* For anchor tag styled as button */
+        }
+
+        .button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .link-button {
+            background-color: transparent;
+            color: var(--link-color);
+            padding: 15px 30px;
+            border: 2px solid var(--link-color);
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 20px 10px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .link-button:hover {
+            background-color: var(--link-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .message {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        .success {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        .error {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(244, 67, 54, 0.2);
+        }
+
+        .info {
+            background-color: rgba(33, 150, 243, 0.1);
+            color: var(--info-color);
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+
+        #addressInfo {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(0,0,0,0.02);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        #currentAddress {
+            font-family: monospace;
+            word-break: break-all;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .button, .link-button {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="../assets/birddao_passport.jpg" alt="BirdDAO Logo" class="logo" onerror="console.log('图片加载失败:', this.src)">
+        <h1>BirdDAO</h1>
+        <div id="message"></div>
+        <button id="connectWallet" class="button">连接钱包</button>
+        <a href="https://magiceden.io/ordinals/marketplace/birddao_passport" class="link-button" target="_blank">加入 BirdDAO</a>
+        <div id="addressInfo" style="display: none;">
+            <p>当前地址: <span id="currentAddress"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // 修改为允许的钱包地址列表
+        const ALLOWED_ADDRESSES = [
+            'bc1pz2lgnaugafuqqzaunjxtjksk4sjua3suvswc0n6zvwhr38s0gthqc0vh9e',
+            'bc1pvquj09d3x6x7aetfemuz79t7kpnmvg7j3ddkay555vrjuewh3k0q8d3gxh',
+            'bc1p56tzcefx59x9acp6d6n9sx9sq8yluzgala27wcp4fxrw2e28wh9sz8up94'
+        ];
+        const messageDiv = document.getElementById('message');
+        const connectButton = document.getElementById('connectWallet');
+        const addressInfo = document.getElementById('addressInfo');
+        const currentAddressSpan = document.getElementById('currentAddress');
+
+        // 检查是否安装了 UniSat 钱包
+        async function checkUniSatWallet() {
+            // 增加重试次数和延迟时间
+            for (let i = 0; i < 5; i++) {
+                if (typeof window.unisat !== 'undefined') {
+                    try {
+                        // 尝试调用一个简单的 API 来确认钱包是否真的可用
+                        await window.unisat.getNetwork();
+                        connectButton.disabled = false;
+                        return true;
+                    } catch (e) {
+                        console.log('钱包检测重试中...', i + 1, e);
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    }
+                } else {
+                    console.log('等待钱包加载...', i + 1);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                }
+            }
+
+            // 如果多次检测都失败
+            showMessage('未检测到 UniSat 钱包，请：<br>1. 确认已安装 UniSat 钱包扩展<br>2. 刷新此页面<br>3. 如果已安装，请尝试重启浏览器', 'error');
+            connectButton.disabled = true;
+            return false;
+        }
+
+        // 显示消息
+        function showMessage(text, type) {
+            messageDiv.innerHTML = text;
+            messageDiv.className = 'message ' + type;
+        }
+
+        // 连接钱包
+        async function connectWallet() {
+            if (!await checkUniSatWallet()) { // Re-check wallet just in case
+                return;
+            }
+
+            try {
+                connectButton.disabled = true;
+                showMessage('正在请求连接钱包...请在 UniSat 钱包弹窗中确认', 'info');
+
+                const accounts = await window.unisat.requestAccounts();
+                const address = accounts[0];
+                
+                currentAddressSpan.textContent = address;
+                addressInfo.style.display = 'block';
+
+                // 调用后端API验证地址
+                const response = await fetch('http://localhost:5000/user/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ address: address })
+                });
+
+                const result = await response.json();
+                console.log('登录响应:', result);
+
+                if (response.ok && result.status === 'success') {
+                    // 保存地址到 localStorage
+                    localStorage.setItem('currentAddress', address);
+                    console.log('地址已保存到 localStorage:', address);
+                    
+                    // 跳转到仪表板页面
+                    window.location.href = 'dashboard.html';
+                } else {
+                    showMessage(result.message || '登录失败', 'error');
+                    connectButton.disabled = false;
+                }
+            } catch (error) {
+                showMessage('连接钱包失败: ' + error.message + '<br>请确保已安装 UniSat 钱包并已解锁', 'error');
+                connectButton.disabled = false;
+            }
+        }
+
+        // 监听钱包地址变化
+        if (window.unisat) {
+            window.unisat.on('accountsChanged', async (accounts) => {
+                showMessage('钱包地址已变更，正在重新验证...', 'info');
+                const address = accounts[0];
+                currentAddressSpan.textContent = address;
+                
+                // 调用后端API验证地址
+                const response = await fetch('http://localhost:5000/user/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ address })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showMessage('地址验证成功！<br>2秒后自动跳转到仪表板...', 'success');
+                    // 将当前地址保存到 session/local storage
+                    localStorage.setItem('currentAddress', address);
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 2000);
+                } else {
+                    showMessage(`地址验证失败: ${result.message}`, 'error');
+                }
+            });
+             window.unisat.on('networkChanged', (network) => { // Added network change listener
+                showMessage(`网络已切换到: ${network}. 请重新连接钱包验证地址。`, 'info');
+                connectButton.disabled = false;
+                addressInfo.style.display = 'none'; // Hide address info on network change
+            });
+        }
+
+        // 页面加载完成后检查钱包
+        window.addEventListener('load', async () => {
+            // 增加初始延迟，给浏览器扩展更多加载时间
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            await checkUniSatWallet();
+        });
+
+        // 绑定按钮点击事件
+        connectButton.addEventListener('click', connectWallet);
+
+    </script>
+</body>
+</html> 

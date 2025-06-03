@@ -92,7 +92,7 @@ def play_alert_sound():
     """循环播放提示音"""
     try:
         # 使用自定义提示音
-        pygame.mixer.music.load('mempo.wav')
+        pygame.mixer.music.load('assets/mempo.wav')
         # 设置循环播放
         pygame.mixer.music.play(-1)  # -1 表示无限循环
         logging.info("开始循环播放提示音...")
